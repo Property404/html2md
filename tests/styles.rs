@@ -35,3 +35,12 @@ They gathered for the feast
 **But they just can't kill the beast**"
     )
 }
+
+#[test]
+fn newlines_treated_as_whitespace() {
+    let md = parse_html(
+        r#"Hello my name is
+<a href="/your-mom.html">Sulfur dioxide</a>"#,
+    );
+    assert_eq!(md, "Hello my name is\n[Sulfur dioxide](/your-mom.html)")
+}

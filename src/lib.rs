@@ -136,8 +136,13 @@ fn walk(
                     text = escape_markdown(result, &text);
                 }
                 let minified_text = EXCESSIVE_WHITESPACE_PATTERN.replace_all(&text, " ");
-                let minified_text = minified_text.trim_matches(|ch: char| ch == '\n' || ch == '\r');
-                result.append_str(minified_text);
+                if result.data.ends_with('\n') || result.data.ends_with(' ') {
+                    let minified_text =
+                        minified_text.trim_matches(|ch: char| ch == '\n' || ch == '\r');
+                    result.append_str(&minified_text);
+                } else {
+                    result.append_str(&minified_text);
+                };
             }
         }
         NodeData::Comment { .. } => {} // ignore comments
