@@ -45,7 +45,7 @@ impl TagHandler for IframeHandler {
         //let width = get_tag_attr(tag, "width");
         //let height = get_tag_attr(tag, "height");
 
-        if src == None {
+        if src.is_none() {
             return;
         }
 
@@ -72,7 +72,7 @@ impl TagHandler for IframeHandler {
         }
 
         // not found, use generic implementation
-        let mut identity = IdentityHandler::default();
+        let mut identity = IdentityHandler;
         identity.handle(tag, printer);
     }
 
@@ -82,6 +82,6 @@ impl TagHandler for IframeHandler {
     }
 
     fn skip_descendants(&self) -> bool {
-        return true;
+        true
     }
 }

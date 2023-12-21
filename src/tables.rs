@@ -24,16 +24,16 @@ impl TagHandler for TableHandler {
         {
             // detect row count
             let most_big_row = rows.iter().max_by(|left, right| {
-                collect_children(&left, any_matcher)
+                collect_children(left, any_matcher)
                     .len()
-                    .cmp(&collect_children(&right, any_matcher).len())
+                    .cmp(&collect_children(right, any_matcher).len())
             });
             if most_big_row.is_none() {
                 // we don't have rows with content at all
                 return;
             }
             // have rows with content, set column count
-            column_count = collect_children(&most_big_row.unwrap(), any_matcher).len();
+            column_count = collect_children(most_big_row.unwrap(), any_matcher).len();
             column_widths = vec![3; column_count];
 
             // detect max column width
@@ -123,7 +123,7 @@ impl TagHandler for TableHandler {
     fn after_handle(&mut self, _printer: &mut StructuredPrinter) {}
 
     fn skip_descendants(&self) -> bool {
-        return true;
+        true
     }
 }
 
@@ -163,16 +163,16 @@ fn pad_cell_text(tag: &Option<&Handle>, column_width: usize) -> String {
         result.push_str(&" ".repeat(pad_len));
     }
 
-    return result;
+    result
 }
 
 /// Extracts tag name from passed tag
 /// Returns empty string if it's not an html element
 fn tag_name(tag: &Handle) -> String {
-    return match tag.data {
+    match tag.data {
         NodeData::Element { ref name, .. } => name.local.to_string(),
         _ => String::new(),
-    };
+    }
 }
 
 /// Find descendants of this tag with tag name `name`
@@ -181,15 +181,15 @@ fn find_children(tag: &Handle, name: &str) -> Vec<Handle> {
     let mut result: Vec<Handle> = vec![];
     let children = tag.children.borrow();
     for child in children.iter() {
-        if tag_name(&child) == name {
+        if tag_name(child) == name {
             result.push(child.clone());
         }
 
-        let mut descendants = find_children(&child, name);
+        let mut descendants = find_children(child, name);
         result.append(&mut descendants);
     }
 
-    return result;
+    result
 }
 
 /// Collect direct children that satisfy the predicate
@@ -207,7 +207,7 @@ where
         }
     }
 
-    return result;
+    result
 }
 
 /// Convert html tag to text. This collects all tag children in correct order where they're observed
@@ -217,5 +217,5 @@ fn to_text(tag: &Handle) -> String {
     walk(tag, &mut printer, &HashMap::default());
 
     let result = clean_markdown(&printer.data);
-    return result.replace("\n", "<br/>");
+    result.replace('\n', "<br/>")
 }

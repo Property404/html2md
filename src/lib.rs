@@ -1,6 +1,5 @@
 use lazy_static::lazy_static;
 
-use std::borrow::Borrow;
 use std::boxed::Box;
 use std::collections::HashMap;
 
@@ -77,7 +76,7 @@ pub fn parse_html_custom(
     let mut result = StructuredPrinter::default();
     walk(&dom.document, &mut result, custom);
 
-    return clean_markdown(&result.data);
+    clean_markdown(&result.data)
 }
 
 /// Main function of this library. Parses incoming HTML, converts it into Markdown
@@ -95,13 +94,13 @@ pub fn parse_html_extended(html: &str) -> String {
     struct SpanAsIsTagFactory;
     impl TagHandlerFactory for SpanAsIsTagFactory {
         fn instantiate(&self) -> Box<dyn TagHandler> {
-            return Box::new(HtmlCherryPickHandler::default());
+            Box::<HtmlCherryPickHandler>::default()
         }
     }
 
     let mut tag_factory: HashMap<String, Box<dyn TagHandlerFactory>> = HashMap::new();
     tag_factory.insert(String::from("span"), Box::new(SpanAsIsTagFactory {}));
-    return parse_html_custom(html, &tag_factory);
+    parse_html_custom(html, &tag_factory)
 }
 
 /// Recursively walk through all DOM tree and handle all elements according to
@@ -116,7 +115,7 @@ fn walk(
     result: &mut StructuredPrinter,
     custom: &HashMap<String, Box<dyn TagHandlerFactory>>,
 ) {
-    let mut handler: Box<dyn TagHandler> = Box::new(DummyHandler::default());
+    let mut handler: Box<dyn TagHandler> = Box::new(DummyHandler);
     let mut tag_name = String::default();
     match input.data {
         NodeData::Document | NodeData::Doctype { .. } | NodeData::ProcessingInstruction { .. } => {}
@@ -126,9 +125,8 @@ fn walk(
             if inside_pre {
                 // this is preformatted text, insert as-is
                 result.append_str(&text);
-            } else if !(text.trim().len() == 0
-                && (result.data.chars().last() == Some('\n')
-                    || result.data.chars().last() == Some(' ')))
+            } else if !(text.trim().is_empty()
+                && (result.data.ends_with('\n') || result.data.ends_with(' ')))
             {
                 // in case it's not just a whitespace after the newline or another whitespace
 
@@ -139,7 +137,7 @@ fn walk(
                 }
                 let minified_text = EXCESSIVE_WHITESPACE_PATTERN.replace_all(&text, " ");
                 let minified_text = minified_text.trim_matches(|ch: char| ch == '\n' || ch == '\r');
-                result.append_str(&minified_text);
+                result.append_str(minified_text);
             }
         }
         NodeData::Comment { .. } => {} // ignore comments
@@ -148,7 +146,7 @@ fn walk(
             let inside_pre = result.parent_chain.iter().any(|tag| tag == "pre");
             if inside_pre {
                 // don't add any html tags inside the pre section
-                handler = Box::new(DummyHandler::default());
+                handler = Box::new(DummyHandler);
             } else if custom.contains_key(&tag_name) {
                 // have user-supplied factory, instantiate a handler for this tag
                 let factory = custom.get(&tag_name).unwrap();
@@ -157,33 +155,31 @@ fn walk(
                 // no user-supplied factory, take one of built-in ones
                 handler = match tag_name.as_ref() {
                     // containers
-                    "div" | "section" | "header" | "footer" => {
-                        Box::new(ContainerHandler::default())
-                    }
+                    "div" | "section" | "header" | "footer" => Box::new(ContainerHandler),
                     // pagination, breaks
-                    "p" | "br" | "hr" => Box::new(ParagraphHandler::default()),
-                    "q" | "cite" | "blockquote" => Box::new(QuoteHandler::default()),
+                    "p" | "br" | "hr" => Box::<ParagraphHandler>::default(),
+                    "q" | "cite" | "blockquote" => Box::<QuoteHandler>::default(),
                     // spoiler tag
-                    "details" | "summary" => Box::new(HtmlCherryPickHandler::default()),
+                    "details" | "summary" => Box::<HtmlCherryPickHandler>::default(),
                     // formatting
-                    "b" | "i" | "s" | "strong" | "em" | "del" => Box::new(StyleHandler::default()),
-                    "h1" | "h2" | "h3" | "h4" | "h5" | "h6" => Box::new(HeaderHandler::default()),
-                    "pre" | "code" => Box::new(CodeHandler::default()),
+                    "b" | "i" | "s" | "strong" | "em" | "del" => Box::<StyleHandler>::default(),
+                    "h1" | "h2" | "h3" | "h4" | "h5" | "h6" => Box::<HeaderHandler>::default(),
+                    "pre" | "code" => Box::<CodeHandler>::default(),
                     // images, links
-                    "img" => Box::new(ImgHandler::default()),
-                    "a" => Box::new(AnchorHandler::default()),
+                    "img" => Box::<ImgHandler>::default(),
+                    "a" => Box::<AnchorHandler>::default(),
                     // lists
-                    "ol" | "ul" | "menu" => Box::new(ListHandler::default()),
-                    "li" => Box::new(ListItemHandler::default()),
+                    "ol" | "ul" | "menu" => Box::new(ListHandler),
+                    "li" => Box::<ListItemHandler>::default(),
                     // as-is
-                    "sub" | "sup" => Box::new(IdentityHandler::default()),
+                    "sub" | "sup" => Box::new(IdentityHandler),
                     // tables, handled fully internally as markdown can't have nested content in tables
                     // supports only single tables as of now
-                    "table" => Box::new(TableHandler::default()),
-                    "iframe" => Box::new(IframeHandler::default()),
+                    "table" => Box::new(TableHandler),
+                    "iframe" => Box::new(IframeHandler),
                     // other
-                    "html" | "head" | "body" => Box::new(DummyHandler::default()),
-                    _ => Box::new(DummyHandler::default()),
+                    "html" | "head" | "body" => Box::new(DummyHandler),
+                    _ => Box::new(DummyHandler),
                 };
             }
         }
@@ -191,7 +187,7 @@ fn walk(
 
     // handle this tag, while it's not in parent chain
     // and doesn't have child siblings
-    handler.handle(&input, result);
+    handler.handle(input, result);
 
     // save this tag name as parent for child nodes
     result.parent_chain.push(tag_name.to_string()); // e.g. it was ["body"] and now it's ["body", "p"]
@@ -205,7 +201,7 @@ fn walk(
             continue;
         }
 
-        walk(child.borrow(), result, custom);
+        walk(child, result, custom);
 
         match child.data {
             NodeData::Element { ref name, .. } => result
@@ -234,7 +230,7 @@ fn walk(
 fn escape_markdown(result: &StructuredPrinter, text: &str) -> String {
     // always escape bold/italic/strikethrough
     let mut data = MARKDOWN_MIDDLE_KEYCHARS
-        .replace_all(&text, "\\$0")
+        .replace_all(text, "\\$0")
         .to_string();
 
     // if we're at the start of the line we need to escape list- and quote-starting sequences
@@ -246,7 +242,7 @@ fn escape_markdown(result: &StructuredPrinter, text: &str) -> String {
 
     // no handling of more complicated cases such as
     // ![] or []() ones, for now this will suffice
-    return data;
+    data
 }
 
 /// Called after all processing has been finished
@@ -254,13 +250,13 @@ fn escape_markdown(result: &StructuredPrinter, text: &str) -> String {
 /// Clears excessive punctuation that would be trimmed by renderer anyway
 fn clean_markdown(text: &str) -> String {
     // remove redundant newlines
-    let intermediate = EMPTY_LINE_PATTERN.replace_all(&text, ""); // empty line with trailing spaces, replace with just newline
+    let intermediate = EMPTY_LINE_PATTERN.replace_all(text, ""); // empty line with trailing spaces, replace with just newline
     let intermediate = EXCESSIVE_NEWLINE_PATTERN.replace_all(&intermediate, "\n\n"); // > 3 newlines - not handled by markdown anyway
     let intermediate = TRAILING_SPACE_PATTERN.replace_all(&intermediate, "$1"); // trim space if it's just one
     let intermediate = LEADING_NEWLINES_PATTERN.replace_all(&intermediate, ""); // trim leading newlines
     let intermediate = LAST_WHITESPACE_PATTERN.replace_all(&intermediate, ""); // trim last newlines
 
-    return intermediate.into_owned();
+    intermediate.into_owned()
 }
 
 /// Intermediate result of HTML -> Markdown conversion.
@@ -317,7 +313,7 @@ pub trait TagHandler {
     fn after_handle(&mut self, printer: &mut StructuredPrinter);
 
     fn skip_descendants(&self) -> bool {
-        return false;
+        false
     }
 }
 
